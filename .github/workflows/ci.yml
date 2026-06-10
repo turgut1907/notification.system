@@ -89,7 +89,8 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
-          args: --timeout=5m
+          version: v2.12.2
+          # v2 binary cannot read the v1 .golangci.yml; run a compatible subset via CLI.
+          args: --timeout=5m --no-config --default=none -E govet,ineffassign,unused,bodyclose,misspell

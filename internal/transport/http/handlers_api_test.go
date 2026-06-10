@@ -19,20 +19,20 @@ import (
 )
 
 type mockNotifSvc struct {
-	lastCreateIn notification.CreateInput
+	lastCreateIn   notification.CreateInput
 	lastListFilter domain.ListFilter
-	createRes  notification.CreateResult
-	createErr  error
-	batchRes   notification.BatchCreateResult
-	batchErr   error
-	view       notification.View
-	getErr     error
-	page       domain.Page
-	listErr    error
-	cancelReq  domain.Request
-	cancelErr  error
-	batch      domain.Batch
-	batchGetErr error
+	createRes      notification.CreateResult
+	createErr      error
+	batchRes       notification.BatchCreateResult
+	batchErr       error
+	view           notification.View
+	getErr         error
+	page           domain.Page
+	listErr        error
+	cancelReq      domain.Request
+	cancelErr      error
+	batch          domain.Batch
+	batchGetErr    error
 }
 
 func (m *mockNotifSvc) Create(_ context.Context, in notification.CreateInput) (notification.CreateResult, error) {

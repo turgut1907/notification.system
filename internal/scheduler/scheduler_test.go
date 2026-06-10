@@ -48,11 +48,11 @@ func TestMaintainPartitions(t *testing.T) {
 func TestRunStartsAndStops(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	s := New(Config{
-		PollInterval:     10 * time.Millisecond,
-		OutboxInterval:   10 * time.Millisecond,
-		ReaperInterval:   10 * time.Millisecond,
-		PromoteBatch:     10,
-		OutboxBatchSize:  10,
+		PollInterval:    10 * time.Millisecond,
+		OutboxInterval:  10 * time.Millisecond,
+		ReaperInterval:  10 * time.Millisecond,
+		PromoteBatch:    10,
+		OutboxBatchSize: 10,
 	}, &mockDB{}, &mockQueue{}, &mockSchedMetrics{}, log)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)

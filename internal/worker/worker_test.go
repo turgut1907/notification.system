@@ -75,10 +75,10 @@ func (m *mockLimiter) Allow(context.Context, domain.Channel) (bool, time.Duratio
 
 type mockMetrics struct{}
 
-func (mockMetrics) IncSent(domain.Channel, domain.Priority)                   {}
-func (mockMetrics) IncFailed(domain.Channel, domain.Priority)                 {}
-func (mockMetrics) IncRetry(domain.Channel, domain.Priority)                  {}
-func (mockMetrics) ObserveProviderLatency(domain.Channel, float64)            {}
+func (mockMetrics) IncSent(domain.Channel, domain.Priority)                    {}
+func (mockMetrics) IncFailed(domain.Channel, domain.Priority)                  {}
+func (mockMetrics) IncRetry(domain.Channel, domain.Priority)                   {}
+func (mockMetrics) ObserveProviderLatency(domain.Channel, float64)             {}
 func (mockMetrics) ObserveProcessing(domain.Channel, domain.Priority, float64) {}
 func (mockMetrics) ObserveE2ELatency(domain.Channel, domain.Priority, float64) {}
 func (mockMetrics) IncDLQ(string)                                              {}
@@ -87,10 +87,10 @@ type captureMetrics struct {
 	e2eLatency float64
 }
 
-func (m *captureMetrics) IncSent(domain.Channel, domain.Priority)                   {}
-func (m *captureMetrics) IncFailed(domain.Channel, domain.Priority)                 {}
-func (m *captureMetrics) IncRetry(domain.Channel, domain.Priority)                  {}
-func (m *captureMetrics) ObserveProviderLatency(domain.Channel, float64)            {}
+func (m *captureMetrics) IncSent(domain.Channel, domain.Priority)                    {}
+func (m *captureMetrics) IncFailed(domain.Channel, domain.Priority)                  {}
+func (m *captureMetrics) IncRetry(domain.Channel, domain.Priority)                   {}
+func (m *captureMetrics) ObserveProviderLatency(domain.Channel, float64)             {}
 func (m *captureMetrics) ObserveProcessing(domain.Channel, domain.Priority, float64) {}
 func (m *captureMetrics) ObserveE2ELatency(_ domain.Channel, _ domain.Priority, seconds float64) {
 	m.e2eLatency = seconds

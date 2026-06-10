@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	envStore  *postgres.Store
-	envRedis  *goredis.Client
-	skipE2E   bool
+	envStore   *postgres.Store
+	envRedis   *goredis.Client
+	skipE2E    bool
 	skipReason string
 )
 

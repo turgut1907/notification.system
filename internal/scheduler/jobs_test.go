@@ -13,18 +13,18 @@ import (
 )
 
 type mockDB struct {
-	outbox       []domain.OutboxEntry
-	promoted     int
-	swept        int
-	reaped       int
-	reconciled   int
-	unpublished  int64
-	publishIDs   []uuid.UUID
+	outbox      []domain.OutboxEntry
+	promoted    int
+	swept       int
+	reaped      int
+	reconciled  int
+	unpublished int64
+	publishIDs  []uuid.UUID
 }
 
-func (m *mockDB) PromoteDue(context.Context, int) (int, error)         { return m.promoted, nil }
-func (m *mockDB) SweepRetries(context.Context, int) (int, error)       { return m.swept, nil }
-func (m *mockDB) ReapStuck(context.Context) (int, error)             { return m.reaped, nil }
+func (m *mockDB) PromoteDue(context.Context, int) (int, error)   { return m.promoted, nil }
+func (m *mockDB) SweepRetries(context.Context, int) (int, error) { return m.swept, nil }
+func (m *mockDB) ReapStuck(context.Context) (int, error)         { return m.reaped, nil }
 func (m *mockDB) ReconcilePending(context.Context, time.Duration, int) (int, error) {
 	return m.reconciled, nil
 }
@@ -38,8 +38,8 @@ func (m *mockDB) MarkOutboxPublished(_ context.Context, ids []uuid.UUID) error {
 	m.publishIDs = append(m.publishIDs, ids...)
 	return nil
 }
-func (m *mockDB) CountUnpublishedOutbox(context.Context) (int64, error) { return m.unpublished, nil }
-func (m *mockDB) OldestDueLagSeconds(context.Context) (float64, error) { return 0, nil }
+func (m *mockDB) CountUnpublishedOutbox(context.Context) (int64, error)    { return m.unpublished, nil }
+func (m *mockDB) OldestDueLagSeconds(context.Context) (float64, error)     { return 0, nil }
 func (m *mockDB) CreateDeliveryPartition(context.Context, time.Time) error { return nil }
 func (m *mockDB) ArchiveAndDropPartition(context.Context, time.Time) error { return nil }
 func (m *mockDB) PurgePublishedOutbox(context.Context, time.Time) (int64, error) {
@@ -55,8 +55,8 @@ func (m *mockQueue) Publish(_ context.Context, stream string, _ domain.DeliveryM
 	m.published = append(m.published, stream)
 	return nil
 }
-func (m *mockQueue) Depth(context.Context, string) (int64, error)      { return m.depth, nil }
-func (m *mockQueue) Pending(context.Context, string) (int64, error)    { return 0, nil }
+func (m *mockQueue) Depth(context.Context, string) (int64, error)   { return m.depth, nil }
+func (m *mockQueue) Pending(context.Context, string) (int64, error) { return 0, nil }
 
 type mockSchedMetrics struct {
 	promoted float64

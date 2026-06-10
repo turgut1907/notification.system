@@ -17,10 +17,10 @@ const minSecretLen = 32
 const DemoTokenTTL = 365 * 24 * time.Hour
 
 var (
-	ErrEmptySecret   = errors.New("auth: JWT_SECRET is required")
+	ErrEmptySecret    = errors.New("auth: JWT_SECRET is required")
 	ErrSecretTooShort = fmt.Errorf("auth: JWT_SECRET must be at least %d characters", minSecretLen)
-	ErrInvalidToken  = errors.New("auth: invalid token")
-	ErrMissingUserID = errors.New("auth: token missing user_id claim")
+	ErrInvalidToken   = errors.New("auth: invalid token")
+	ErrMissingUserID  = errors.New("auth: token missing user_id claim")
 )
 
 type contextKey string
