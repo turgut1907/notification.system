@@ -1,0 +1,56 @@
+groups:
+  - name: notification-system
+    rules:
+      - alert: DeliveryFailureRateHigh
+        expr: sum(rate(deliveries_failed_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High delivery failure rate
+          description: Deliveries are failing faster than 0.1/s over the last 5 minutes.
+
+      - alert: OutboxBacklogHigh
+        expr: outbox_unpublished > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Outbox relay backlog is high
+          description: More than 100 unpublished outbox rows are waiting to be relayed.
+
+      - alert: QueueDepthHigh
+        expr: max(queue_depth) > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis stream depth is high
+          description: At least one notification stream has more than 500 entries.
+
+      - alert: CircuitBreakerOpen
+        expr: max(provider_circuit_state) == 2
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Provider circuit breaker is open
+          description: A channel circuit breaker has been open for at least one minute.
+
+      - alert: DLQGrowth
+        expr: sum(rate(dlq_messages_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Dead-letter queue is receiving messages
+          description: Messages are being published to the DLQ stream.
+
+      - alert: SchedulerLagHigh
+        expr: scheduler_lag_seconds > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Scheduler promotion lag is high
+          description: Due scheduled or retrying deliveries have been waiting more than 5 minutes.

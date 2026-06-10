@@ -1,0 +1,336 @@
+openapi: 3.0.3
+info:
+  title: Notification System API
+  description: >
+    Event-driven notification platform. Notifications are accepted via the API,
+    persisted, and processed asynchronously by workers across priority/channel
+    streams. Supports templates, scheduling, idempotency, and batch submission.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local
+tags:
+  - name: notifications
+  - name: batches
+  - name: operations
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/notifications:
+    post:
+      tags: [notifications]
+      summary: Create a notification
+      description: >
+        Accepts a notification for asynchronous delivery. Provide either `content`
+        or a `template_id` with `variables`. Supply an `Idempotency-Key` header (or
+        `idempotency_key` body field) for safe retries; a duplicate key returns the
+        existing notification with status 200 instead of creating a new one.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationRequest'
+      responses:
+        '202':
+          description: Notification accepted for delivery
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '200':
+          description: Idempotent replay; existing notification returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    get:
+      tags: [notifications]
+      summary: List notifications
+      description: >
+        Returns a keyset-paginated page of notifications, newest first. Combine
+        `status`, `channel`, and optional `from`/`to` date bounds (RFC3339, inclusive
+        on `created_at`). Use `limit` to cap page size (default 50, max 200) and
+        `cursor` from a previous response's `next_cursor` for the next page.
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [PENDING, PROCESSING, SENT, FAILED, PARTIAL, CANCELLED] }
+        - in: query
+          name: channel
+          schema: { type: string, enum: [sms, email, push] }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+          description: >
+            Lower bound on `created_at` (inclusive). RFC3339, e.g. `2026-06-10T00:00:00Z`.
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+          description: >
+            Upper bound on `created_at` (inclusive). RFC3339, e.g. `2026-06-10T23:59:59Z`.
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+          description: Page size (default 50, maximum 200).
+        - in: query
+          name: cursor
+          schema: { type: string }
+          description: Opaque pagination cursor from a previous page's `next_cursor`.
+      responses:
+        '200':
+          description: A page of notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/notifications/batch:
+    post:
+      tags: [notifications]
+      summary: Create a batch of notifications
+      description: Submit up to 1000 notifications in a single transactional request.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBatchRequest'
+      responses:
+        '202':
+          description: Batch accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResult'
+        '200':
+          description: Idempotent replay; existing batch returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/notifications/{id}:
+    get:
+      tags: [notifications]
+      summary: Get a notification with its deliveries
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: The notification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/notifications/{id}/cancel:
+    post:
+      tags: [notifications]
+      summary: Cancel a notification
+      description: Cancels deliveries that have not yet reached a terminal state.
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: The cancelled notification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Notification cannot be cancelled in its current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/batches/{id}:
+    get:
+      tags: [batches]
+      summary: Get a batch summary
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: The batch summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /healthz:
+    get:
+      tags: [operations]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200': { description: Service is alive }
+  /readyz:
+    get:
+      tags: [operations]
+      summary: Readiness probe
+      security: []
+      responses:
+        '200': { description: All dependencies healthy }
+        '503': { description: One or more dependencies unhealthy }
+  /metrics:
+    get:
+      tags: [operations]
+      summary: Prometheus metrics
+      security: []
+      responses:
+        '200': { description: Metrics in Prometheus text format }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        HS256 JWT signed with JWT_SECRET. The token must include a `user_id` claim;
+        use `make gentoken user_id=YOUR_USER_ID` to generate a demo token locally.
+  parameters:
+    ID:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: false
+      schema: { type: string, maxLength: 255 }
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    CreateNotificationRequest:
+      type: object
+      required: [recipient, channel, priority]
+      properties:
+        recipient: { type: string, example: "user@example.com" }
+        channel: { type: string, enum: [sms, email, push] }
+        priority: { type: string, enum: [high, normal, low] }
+        content: { type: string, description: "Required unless template_id is given" }
+        template_id: { type: string, format: uuid }
+        variables:
+          type: object
+          additionalProperties: { type: string }
+        idempotency_key: { type: string }
+        send_at:
+          type: string
+          format: date-time
+          description: "If set in the future, the notification is scheduled."
+    CreateBatchRequest:
+      type: object
+      required: [notifications]
+      properties:
+        idempotency_key: { type: string }
+        notifications:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/CreateNotificationRequest'
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        batch_id: { type: string, format: uuid, nullable: true }
+        recipient: { type: string }
+        channel: { type: string }
+        priority: { type: string }
+        status: { type: string }
+        content: { type: string }
+        created_at: { type: string, format: date-time }
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Delivery'
+    Delivery:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [SCHEDULED, PENDING, PROCESSING, SENT, RETRYING, FAILED, CANCELLED] }
+        attempt_count: { type: integer }
+        provider_message_id: { type: string, nullable: true }
+        last_error: { type: string, nullable: true }
+        next_retry_at: { type: string, format: date-time, nullable: true }
+        send_at: { type: string, format: date-time, nullable: true }
+        updated_at: { type: string, format: date-time }
+    NotificationSummary:
+      type: object
+      description: >
+        List item without rendered content. Use GET /notifications/{id} for the full body.
+      properties:
+        id: { type: string, format: uuid }
+        batch_id: { type: string, format: uuid, nullable: true }
+        recipient: { type: string }
+        channel: { type: string }
+        priority: { type: string }
+        status: { type: string }
+        created_at: { type: string, format: date-time }
+    NotificationPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationSummary'
+        next_cursor: { type: string, nullable: true }
+    BatchResult:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        total_count: { type: integer }
+        pending_count: { type: integer }
+        sent_count: { type: integer }
+        failed_count: { type: integer }
+        cancelled_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        created_count: { type: integer }
+        duplicate_count: { type: integer }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        field: { type: string }
+        message: { type: string }

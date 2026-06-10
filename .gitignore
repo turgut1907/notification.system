@@ -1,0 +1,33 @@
+# Binaries
+/bin/
+/out/
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Local env (keep .env.example tracked)
+.env
+.env.local
+.env.*.local
+
+# Go
+vendor/
+*.test
+*.out
+coverage.out
+coverage.html
+*.prof
+
+# Local scratch
+tmp/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+Thumbs.db

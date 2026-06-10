@@ -1,0 +1,151 @@
+name: notification-system
+
+# Shared application environment for the three Go services. Override any value via
+# a .env file (see .env.example) or your shell environment.
+x-app-env: &app-env
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  POSTGRES_DSN: postgres://notif:notif@postgres:5432/notifications?sslmode=disable
+  REDIS_ADDR: redis:6379
+  RATE_LIMITER: ${RATE_LIMITER:-redis}
+  RATE_LIMIT_PER_SECOND: ${RATE_LIMIT_PER_SECOND:-100}
+  PROVIDER_WEBHOOK_URL: ${PROVIDER_WEBHOOK_URL:-}
+  WORKER_PRIORITIES: ${WORKER_PRIORITIES:-high,normal,low}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: notif
+      POSTGRES_PASSWORD: notif
+      POSTGRES_DB: notifications
+    # Modest tuning so HOT updates and aggressive autovacuum behave well locally.
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notif -d notifications"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.18.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://notif:notif@postgres:5432/notifications?sslmode=disable"
+      - "up"
+    restart: on-failure
+
+  api:
+    build:
+      context: .
+    image: notification-system:local
+    entrypoint: ["/app/api"]
+    environment:
+      <<: *app-env
+      HTTP_ADDR: ":8080"
+      JWT_SECRET: ${JWT_SECRET:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    image: notification-system:local
+    build:
+      context: .
+    entrypoint: ["/app/worker"]
+    environment:
+      <<: *app-env
+      METRICS_ADDR: ":9090"
+    ports:
+      - "9090:9090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+  scheduler:
+    image: notification-system:local
+    build:
+      context: .
+    entrypoint: ["/app/scheduler"]
+    environment:
+      <<: *app-env
+      METRICS_ADDR: ":9090"
+    ports:
+      - "9091:9090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9092:9090"
+    depends_on:
+      - api
+      - worker
+      - scheduler
+      - alertmanager
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--web.listen-address=:9093"
+    volumes:
+      - ./deploy/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
